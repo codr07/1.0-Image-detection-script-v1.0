@@ -1,0 +1,30 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Model weights & downloads
+*.pt
+*.pth
+drive_download_test/
+
+# Generated Reports & Output
+image_detection_analysis_report*.xlsx
+image_detection_analysis_report*.csv
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+{
+  "name": "image-detection-script",
+  "version": "1.0.0",
+  "description": "Image detection and analysis dashboard runner",
+  "scripts": {
+    "dev": "npm run dev --prefix \"../image-detection-tool\"",
+    "start": "npm run start --prefix \"../image-detection-tool\"",
+    "server": "python script.py",
+    "detect": "python run_local_detection.py"
+  }
+}
