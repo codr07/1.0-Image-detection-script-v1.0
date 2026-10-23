@@ -1,403 +1,803 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title>Image Detector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Image Detective · AI Vision Analyzer</title>
+    <meta name="description" content="Upload any photo or link a Google Drive folder — get a precise AI-powered breakdown using YOLOv8 + Gemini Vision. Objects, counts, colors, setting, and more." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --bg: #f6f5f1;
-        --card: #fff;
-        --tx: #1d1c1a;
-        --mu: #6b6860;
-        --ac: #2f6f4f;
-        --ac2: #e5f0e9;
-        --bd: #dedbd2;
-        box-sizing: border-box;
-        padding-top: env(safe-area-inset-top, 0px);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        --bg:       #0d0f0e;
+        --surface:  #141714;
+        --card:     #1a1d1a;
+        --card2:    #1f231f;
+        --border:   #2a2e2a;
+        --border2:  #333733;
+        --tx:       #e8ece8;
+        --tx2:      #a0a8a0;
+        --tx3:      #606860;
+        --accent:   #4ade80;
+        --accent2:  #22c55e;
+        --accent-dim: rgba(74,222,128,.12);
+        --accent-glow: rgba(74,222,128,.25);
+        --red:      #f87171;
+        --amber:    #fbbf24;
+        --blue:     #60a5fa;
+        --mono:     'JetBrains Mono', monospace;
+        --sans:     'Inter', system-ui, sans-serif;
+        --r-sm:     8px;
+        --r-md:     12px;
+        --r-lg:     18px;
+        --r-xl:     24px;
+        --shadow-lg:0 8px 48px rgba(0,0,0,.6);
       }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) {
-          --bg: #171815;
-          --card: #222320;
-          --tx: #ecebe6;
-          --mu: #a09d93;
-          --ac: #6fc095;
-          --ac2: #243229;
-          --bd: #37382f;
-        }
-      }
-      :root[data-theme="dark"] {
-        --bg: #171815;
-        --card: #222320;
-        --tx: #ecebe6;
-        --mu: #a09d93;
-        --ac: #6fc095;
-        --ac2: #243229;
-        --bd: #37382f;
-      }
-      * {
-        box-sizing: border-box;
-      }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        margin: 0;
         background: var(--bg);
         color: var(--tx);
-        font:
-          16px/1.5 system-ui,
-          -apple-system,
-          "Segoe UI",
-          Roboto,
-          sans-serif;
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        min-height: 100vh;
+        overflow-x: hidden;
       }
-      main {
-        max-width: 860px;
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(74,222,128,.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(74,222,128,.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .page-wrap {
+        position: relative;
+        z-index: 1;
+        max-width: 980px;
         margin: 0 auto;
-        padding: 24px 16px 48px;
+        padding: 32px 20px 72px;
       }
-      h1 {
-        font-size: 26px;
-        margin: 0 0 4px;
-      }
-      .sub {
-        color: var(--mu);
-        margin: 0 0 20px;
-      }
-      .card {
-        background: var(--card);
-        border: 1px solid var(--bd);
-        border-radius: 14px;
-        padding: 16px;
-        margin-bottom: 16px;
-      }
-      #drop {
-        border: 2px dashed var(--bd);
-        border-radius: 14px;
-        padding: 32px 16px;
-        text-align: center;
-        cursor: pointer;
-        color: var(--mu);
-      }
-      #drop.over {
-        border-color: var(--ac);
-        background: var(--ac2);
-      }
-      #preview {
-        max-width: 100%;
-        max-height: 360px;
-        border-radius: 10px;
-        display: none;
-        margin: 0 auto;
-      }
-      button {
-        background: var(--ac);
-        color: #fff;
-        border: 0;
-        border-radius: 10px;
-        padding: 11px 20px;
-        font-size: 16px;
-        cursor: pointer;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-      
-      @media (prefers-color-scheme:dark) {:root[data-theme="dark"] button,
-        button {
-          color: #10130f;
-        }
-      }
-      .row {
+      /* Header */
+      .header {
         display: flex;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-top: 14px;
-      }
-      #status {
-        color: var(--mu);
-      }
-      h2 {
-        font-size: 17px;
-        margin: 0 0 10px;
-      }
-      .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .chip {
-        background: var(--ac2);
-        color: var(--tx);
-        border-radius: 999px;
-        padding: 4px 12px;
-        font-size: 14px;
-      }
-      .obj {
-        border-top: 1px solid var(--bd);
-        padding: 12px 0;
-      }
-      .obj:first-child {
-        border-top: 0;
-        padding-top: 0;
-      }
-      .oh {
-        display: flex;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 10px;
-        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 36px;
+        flex-wrap: wrap;
       }
-      .on {
-        font-weight: 600;
+      .header-left h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
+      .header-left h1 span {
+        background: linear-gradient(135deg, var(--accent), #86efac);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       }
-      .cnt {
-        background: var(--ac);
-        color: #fff;
-        border-radius: 8px;
-        padding: 1px 10px;
-        font-weight: 600;
-        font-size: 14px;
+      .header-left p { color: var(--tx2); font-size: 14px; margin-top: 6px; }
+      .status-badge {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 999px; padding: 6px 14px;
+        font-size: 13px; color: var(--tx2); white-space: nowrap;
       }
-      @media (prefers-color-scheme: dark) {
-        .cnt {
-          color: #10130f;
-        }
+      .status-badge .dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--tx3);
       }
-      .od {
-        color: var(--mu);
-        font-size: 14px;
-        margin: 4px 0 0;
+      .status-badge.online .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+      .status-badge.error .dot  { background: var(--red); box-shadow: 0 0 8px var(--red); }
+      @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+      /* Tabs */
+      .tabs {
+        display: flex; gap: 4px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--r-lg); padding: 4px;
+        margin-bottom: 24px; width: fit-content;
       }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 10px;
+      .tab {
+        padding: 9px 20px; border-radius: var(--r-md);
+        font-size: 14px; font-weight: 500; cursor: pointer;
+        color: var(--tx2); border: none; background: transparent;
+        transition: all .2s; display: flex; align-items: center; gap: 7px;
       }
-      .kv b {
-        display: block;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--mu);
+      .tab:hover { color: var(--tx); background: var(--card); }
+      .tab.active { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(74,222,128,.2); }
+
+      /* Cards */
+      .card {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--r-xl); padding: 20px;
+        margin-bottom: 16px; transition: border-color .2s;
       }
-      .err {
-        color: #b3392b;
+      .card:hover { border-color: var(--border2); }
+      .card-title {
+        font-size: 12px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--tx3); margin-bottom: 14px;
+        display: flex; align-items: center; gap: 8px;
       }
-      .note {
-        color: var(--mu);
-        font-size: 13px;
+      .card-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+      /* Drop zone */
+      #drop-zone {
+        border: 2px dashed var(--border2); border-radius: var(--r-lg);
+        padding: 48px 24px; text-align: center; cursor: pointer;
+        color: var(--tx3); transition: all .25s; position: relative; overflow: hidden;
+      }
+      #drop-zone::before {
+        content:''; position:absolute; inset:0;
+        background: radial-gradient(circle at 50% 50%, var(--accent-dim), transparent 70%);
+        opacity:0; transition: opacity .3s;
+      }
+      #drop-zone:hover, #drop-zone.drag-over { border-color: var(--accent); color: var(--tx2); }
+      #drop-zone:hover::before, #drop-zone.drag-over::before { opacity:1; }
+      .drop-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+      .drop-text { font-size: 15px; font-weight: 500; }
+      .drop-hint { font-size: 13px; color: var(--tx3); margin-top: 4px; }
+
+      /* Preview */
+      #preview-wrap { display:none; position:relative; border-radius: var(--r-md); overflow:hidden; background: var(--surface); margin-bottom:16px; }
+      #preview-wrap img { width:100%; max-height:380px; object-fit:contain; display:block; }
+      .preview-remove {
+        position:absolute; top:10px; right:10px;
+        background:rgba(0,0,0,.7); border: 1px solid var(--border); color: var(--tx2);
+        border-radius:50%; width:30px; height:30px;
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer; font-size:14px; transition: all .2s;
+      }
+      .preview-remove:hover { background: var(--red); color:#fff; border-color: var(--red); }
+
+      /* Inputs */
+      .input-field {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--r-md); color: var(--tx);
+        font-family: var(--sans); font-size: 14px;
+        padding: 11px 14px; outline: none;
+        transition: border-color .2s, box-shadow .2s; width: 100%;
+      }
+      .input-field::placeholder { color: var(--tx3); }
+      .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+      .input-label { font-size: 12px; color: var(--tx3); margin-bottom: 5px; display: block; font-weight: 500; }
+
+      /* Buttons */
+      .btn {
+        display:inline-flex; align-items:center; gap:8px;
+        padding: 11px 22px; border-radius: var(--r-md);
+        font-size: 14px; font-weight: 600; cursor: pointer;
+        border: none; transition: all .2s; white-space: nowrap;
+      }
+      .btn-primary { background: var(--accent); color: #0d1a10; }
+      .btn-primary:hover:not(:disabled) { background: #86efac; box-shadow: 0 0 20px var(--accent-glow); transform: translateY(-1px); }
+      .btn-ghost { background: var(--surface); color: var(--tx2); border: 1px solid var(--border); }
+      .btn-ghost:hover:not(:disabled) { border-color: var(--border2); color: var(--tx); }
+      .btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
+      .btn-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px; }
+
+      /* Spinner */
+      .spinner { width:18px; height:18px; border: 2px solid rgba(74,222,128,.2); border-top-color: var(--accent); border-radius:50%; animation: spin .7s linear infinite; flex-shrink:0; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Status */
+      .status-msg { font-size:13px; color: var(--tx2); display:flex; align-items:center; gap:8px; }
+      .status-msg.err { color: var(--red); }
+      .status-msg.ok  { color: var(--accent); }
+
+      /* Progress */
+      .progress-wrap { height:3px; background: var(--border); border-radius:4px; margin:16px 0 0; overflow:hidden; display:none; }
+      .progress-wrap.active { display:block; }
+      .progress-bar { height:100%; background: linear-gradient(90deg, var(--accent2), var(--accent), #86efac); border-radius:4px; width:0%; transition: width .4s ease; }
+
+      /* Results */
+      #results { display:none; }
+      #results.show { display:block; animation: fadeUp .4s ease; }
+      @keyframes fadeUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+      /* Summary banner */
+      .summary-banner {
+        background: linear-gradient(135deg, var(--card2), var(--card));
+        border: 1px solid rgba(74,222,128,.2);
+        border-radius: var(--r-xl); padding:24px; margin-bottom:16px;
+        position:relative; overflow:hidden;
+      }
+      .summary-banner::before {
+        content:''; position:absolute; top:-50%; left:-50%;
+        width:200%; height:200%;
+        background: radial-gradient(circle, var(--accent-dim), transparent 60%);
+        pointer-events:none;
+      }
+      .summary-banner h2 { font-size:18px; font-weight:600; margin-bottom:6px; position:relative; }
+      .summary-banner p  { color: var(--tx2); font-size:14px; position:relative; }
+      .summary-meta { display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; }
+      .meta-pill {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius:999px; padding:4px 12px; font-size:12px; font-weight:500;
+        display:flex; align-items:center; gap:5px;
+      }
+      .meta-pill strong { color: var(--tx); }
+
+      /* Counts grid */
+      .counts-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+      .count-card {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--r-lg); padding:16px; text-align:center;
+        transition: all .2s; position:relative; overflow:hidden;
+      }
+      .count-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+      .count-card.has-data { border-color: rgba(74,222,128,.2); }
+      .count-card.has-data:hover { box-shadow: 0 4px 20px var(--accent-dim); }
+      .count-icon { font-size:26px; margin-bottom:6px; display:block; }
+      .count-num { font-size:26px; font-weight:700; color: var(--accent); display:block; font-family: var(--mono); line-height:1; }
+      .count-label { font-size:12px; color: var(--tx3); margin-top:4px; display:block; font-weight:500; }
+      .count-detail { font-size:11px; color: var(--tx3); margin-top:4px; line-height:1.4; display:block; }
+
+      /* Objects list */
+      .obj-row { display:flex; align-items:flex-start; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); animation: fadeUp .3s ease both; }
+      .obj-row:last-child { border-bottom:none; }
+      .obj-badge { background: var(--accent-dim); color: var(--accent); border-radius: var(--r-sm); padding:3px 9px; font-family: var(--mono); font-size:13px; font-weight:600; flex-shrink:0; min-width:40px; text-align:center; border:1px solid rgba(74,222,128,.2); }
+      .obj-badge.approx { background: rgba(251,191,36,.1); color: var(--amber); border-color:rgba(251,191,36,.2); }
+      .obj-name { font-weight:600; font-size:14px; }
+      .obj-cat { display:inline-flex; align-items:center; gap:4px; background: var(--surface); border:1px solid var(--border); border-radius:999px; padding:2px 8px; font-size:11px; color: var(--tx3); margin-left:8px; }
+      .obj-details { font-size:13px; color: var(--tx2); margin-top:3px; line-height:1.5; }
+
+      /* Chips */
+      .chips { display:flex; flex-wrap:wrap; gap:7px; }
+      .chip { background: var(--surface); border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:13px; color: var(--tx2); transition: all .15s; }
+      .chip:hover { border-color: var(--border2); color: var(--tx); }
+      .color-chip { display:flex; align-items:center; gap:6px; }
+      .color-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1px solid rgba(255,255,255,.1); }
+
+      /* Context grid */
+      .context-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+      .kv { background: var(--surface); border:1px solid var(--border); border-radius: var(--r-md); padding:12px; }
+      .kv-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color: var(--tx3); margin-bottom:4px; }
+      .kv-val { font-size:14px; color: var(--tx); }
+
+      /* Batch info */
+      .batch-info { background:rgba(96,165,250,.08); border:1px solid rgba(96,165,250,.2); border-radius: var(--r-lg); padding:16px 20px; font-size:13px; color: var(--tx2); display:flex; gap:12px; align-items:flex-start; margin-bottom:16px; }
+      .batch-info-icon { font-size:20px; flex-shrink:0; }
+
+      /* Report box */
+      .report-box { background: var(--surface); border:1px solid var(--border); border-radius: var(--r-md); padding:16px; font-family: var(--mono); font-size:12.5px; line-height:1.7; color: var(--tx2); max-height:320px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; }
+      .report-box::-webkit-scrollbar { width:5px; }
+      .report-box::-webkit-scrollbar-thumb { background: var(--border2); border-radius:4px; }
+
+      /* Caveat list */
+      .caveat-list { list-style:none; }
+      .caveat-list li { display:flex; gap:8px; font-size:13px; color: var(--tx2); padding:5px 0; }
+      .caveat-list li::before { content:'⚠'; font-size:12px; margin-top:2px; flex-shrink:0; }
+
+      /* Photo table */
+      .photo-table { width:100%; border-collapse:collapse; font-size:13px; }
+      .photo-table th { text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color: var(--tx3); padding:8px 10px; border-bottom:1px solid var(--border); }
+      .photo-table td { padding:10px; border-bottom:1px solid var(--border); color: var(--tx2); vertical-align:top; }
+      .photo-table tr:last-child td { border-bottom:none; }
+      .photo-table tr:hover td { background: var(--surface); }
+      .photo-table td:first-child { color: var(--tx); font-weight:500; }
+
+      /* Toast */
+      #toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background: var(--card2); border:1px solid var(--border); border-radius: var(--r-lg); padding:12px 20px; font-size:14px; color: var(--tx); box-shadow: var(--shadow-lg); transition: transform .3s cubic-bezier(.34,1.56,.64,1); z-index:999; pointer-events:none; }
+      #toast.show { transform: translateX(-50%) translateY(0); }
+
+      /* Divider */
+      .divider { height:1px; background: var(--border); margin:16px 0; }
+      .hidden { display:none !important; }
+      .mt-8 { margin-top:8px; }
+      .mt-12 { margin-top:12px; }
+      .txt-sm { font-size:13px; }
+      .txt-dim { color: var(--tx3); }
+
+      @media (max-width:560px) {
+        .header { flex-direction:column; }
+        .counts-grid { grid-template-columns:repeat(3,1fr); }
+        .btn { padding:10px 16px; font-size:13px; }
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>🔍 Image Detector</h1>
-      <p class="sub">
-        Upload any photo and get a detailed breakdown: objects, counts, types,
-        colors, setting and more.
-      </p>
+    <div class="page-wrap">
 
-      <div class="card">
-        <div id="drop">Drop an image here or tap to choose one</div>
-        <input id="file" type="file" accept="image/*" hidden />
-        <img id="preview" alt="Selected image preview" />
-        <div class="row">
-          <button id="go" disabled>Analyze image</button>
-          <span id="status"></span>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <h1>🔍 Image <span>Detective</span></h1>
+          <p>Hybrid YOLOv8 + Gemini Vision · Zero Hallucination · Local + Cloud Analysis</p>
+        </div>
+        <div id="server-badge" class="status-badge" title="API server at localhost:2026">
+          <span class="dot"></span>
+          <span id="server-txt">Checking API…</span>
+        </div>
+      </header>
+
+      <!-- Tabs -->
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="tab-single" onclick="switchTab('single')">🖼 Single Image</button>
+        <button class="tab" id="tab-folder" onclick="switchTab('folder')">📁 Drive Folder</button>
+        <button class="tab" id="tab-local" onclick="switchTab('local')">⚡ Local Batch</button>
+      </div>
+
+      <!-- SINGLE IMAGE PANEL -->
+      <div id="panel-single">
+        <div class="card">
+          <div class="card-title">📤 Upload Image</div>
+          <div id="preview-wrap">
+            <img id="preview-img" alt="Selected image preview" />
+            <button class="preview-remove" onclick="clearImage()" title="Remove">✕</button>
+          </div>
+          <div id="drop-zone">
+            <span class="drop-icon">🗂</span>
+            <div class="drop-text">Drop image here or tap to browse</div>
+            <div class="drop-hint">JPEG · PNG · WEBP · up to 30 MB</div>
+          </div>
+          <input id="file-input" type="file" accept="image/*" hidden />
+          <div class="divider"></div>
+          <label class="input-label">Or paste an image URL</label>
+          <input id="img-url" class="input-field" type="url" placeholder="https://example.com/photo.jpg" />
+          <div id="progress-wrap" class="progress-wrap mt-12">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+          <div class="btn-row">
+            <button id="btn-analyze" class="btn btn-primary" onclick="analyzeImage()" disabled>⚡ Analyze Image</button>
+            <span id="status-msg" class="status-msg"></span>
+          </div>
         </div>
       </div>
 
-      <div id="out"></div>
-      <p class="note">
-        Counts are visual estimates. For crowded scenes, expect “about” numbers.
-      </p>
-    </main>
+      <!-- FOLDER PANEL -->
+      <div id="panel-folder" class="hidden">
+        <div class="card">
+          <div class="card-title">📁 Google Drive Folder Analysis</div>
+          <label class="input-label">Google Drive Folder Link</label>
+          <input id="folder-url" class="input-field" type="url" placeholder="https://drive.google.com/drive/folders/…" style="margin-bottom:12px" />
+          <label class="input-label">Max images to analyze</label>
+          <input id="max-images" class="input-field" type="number" value="50" min="1" max="300" style="width:160px;margin-bottom:8px" />
+          <p class="txt-sm txt-dim">Pulls images from Drive → runs Gemini Vision on each → writes results to Google Sheets spreadsheet.</p>
+          <div id="folder-progress" class="progress-wrap mt-12">
+            <div class="progress-bar" style="width:50%"></div>
+          </div>
+          <div class="btn-row">
+            <button id="btn-folder" class="btn btn-primary" onclick="analyzeFolder()">🚀 Run Folder Analysis</button>
+            <span id="folder-status" class="status-msg"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOCAL BATCH PANEL -->
+      <div id="panel-local" class="hidden">
+        <div class="card">
+          <div class="card-title">⚡ Local Hybrid Detection</div>
+          <div class="batch-info">
+            <span class="batch-info-icon">ℹ️</span>
+            <div>
+              <strong>run_local_detection.py</strong> — runs offline using <strong>YOLOv8n</strong> for bounding-box detection, then cross-validates each frame with <strong>Gemini Vision</strong> (if API key is set in <code>.env</code>). Results are saved as <code>image_detection_analysis_report.xlsx</code> and <code>.csv</code>.<br /><br />
+              Place images inside <code>drive_download_test/</code>, then run:
+              <div class="report-box mt-8" style="max-height:60px">python run_local_detection.py</div>
+            </div>
+          </div>
+          <div class="card-title mt-12">📊 Report Viewer</div>
+          <p class="txt-sm txt-dim" style="margin-bottom:12px">After running the script, drop the generated <strong>.csv</strong> report here to visualize it instantly.</p>
+          <div id="report-drop" style="border:2px dashed var(--border2);border-radius:var(--r-lg);padding:28px 20px;text-align:center;cursor:pointer;color:var(--tx3);transition:all .2s" onclick="document.getElementById('report-file').click()">
+            📂 Drop CSV / Excel report here or tap to open
+          </div>
+          <input id="report-file" type="file" accept=".xlsx,.csv" hidden />
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="results">
+
+        <div class="summary-banner">
+          <h2 id="res-summary">—</h2>
+          <p id="res-description"></p>
+          <div class="summary-meta" id="res-meta"></div>
+        </div>
+
+        <div class="counts-grid" id="counts-grid"></div>
+
+        <div class="card" id="objects-card" style="display:none">
+          <div class="card-title">🎯 Detected Objects</div>
+          <div id="objects-list"></div>
+        </div>
+
+        <div class="card" id="colors-card" style="display:none">
+          <div class="card-title">🎨 Dominant Colours</div>
+          <div class="chips" id="colors-chips"></div>
+        </div>
+
+        <div class="card" id="context-card" style="display:none">
+          <div class="card-title">🌍 Scene Context</div>
+          <div class="context-grid" id="context-grid"></div>
+        </div>
+
+        <div class="card" id="features-card" style="display:none">
+          <div class="card-title">✨ Notable Features</div>
+          <div class="chips" id="features-chips"></div>
+        </div>
+
+        <div class="card" id="text-card" style="display:none">
+          <div class="card-title">🔤 Text in Image</div>
+          <div class="chips" id="text-chips"></div>
+        </div>
+
+        <div class="card" id="caveats-card" style="display:none">
+          <div class="card-title">📋 Notes &amp; Limits</div>
+          <ul class="caveat-list" id="caveats-list"></ul>
+        </div>
+
+        <div class="card" id="folder-table-card" style="display:none">
+          <div class="card-title">📂 Photo-by-Photo Results</div>
+          <div style="overflow-x:auto">
+            <table class="photo-table" id="folder-table">
+              <thead><tr><th>File</th><th>Summary</th><th>Animals</th><th>People</th><th>Vehicles</th><th>Objects</th></tr></thead>
+              <tbody id="folder-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" id="report-card" style="display:none">
+          <div class="card-title">
+            📄 Full Report
+            <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;margin-left:auto;margin-top:-2px" onclick="copyReport()">📋 Copy</button>
+          </div>
+          <div class="report-box" id="report-raw"></div>
+        </div>
+
+      </div><!-- /results -->
+    </div><!-- /page-wrap -->
+
+    <div id="toast"></div>
+
     <script>
-      const $ = (id) => document.getElementById(id);
-      let blob = null;
+      const API = 'http://localhost:2026';
+      const CAT_ICONS = { animal:'🐾',animals:'🐾',plant:'🌿',plants:'🌿',person:'👤',people:'👤',vehicle:'🚗',vehicles:'🚗',building:'🏢',buildings:'🏢',object:'📦',objects:'📦','electronic device':'💻',other:'🔹' };
 
-      function load(f) {
-        if (!f || !f.type.startsWith("image/")) return;
-        const img = new Image();
-        img.onload = () => {
-          const m = 1280,
-            s = Math.min(1, m / Math.max(img.width, img.height));
-          const c = document.createElement("canvas");
-          c.width = Math.round(img.width * s);
-          c.height = Math.round(img.height * s);
-          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-          c.toBlob(
-            (b) => {
-              blob = b;
-              $("preview").src = URL.createObjectURL(b);
-              $("preview").style.display = "block";
-              $("go").disabled = false;
-              $("status").textContent = "";
-              $("out").innerHTML = "";
-            },
-            "image/jpeg",
-            0.85,
-          );
-        };
-        img.src = URL.createObjectURL(f);
-      }
-      $("drop").onclick = () => $("file").click();
-      $("file").onchange = (e) => load(e.target.files[0]);
-      $("drop").ondragover = (e) => {
-        e.preventDefault();
-        $("drop").classList.add("over");
-      };
-      $("drop").ondragleave = () => $("drop").classList.remove("over");
-      $("drop").ondrop = (e) => {
-        e.preventDefault();
-        $("drop").classList.remove("over");
-        load(e.dataTransfer.files[0]);
-      };
+      let imageBlob = null;
+      let currentTab = 'single';
+      let lastReport = '';
 
-      const PROMPT = `You are an expert image analyst. Examine the attached image carefully and return ONLY valid JSON (no markdown, no backticks) with this shape:
-{"summary":"2-3 sentence description of the whole scene",
-"scene_type":"e.g. forest, street, kitchen",
-"setting":"location/environment, time of day, weather, season if visible",
-"objects":[{"name":"category e.g. Trees","count":12,"count_is_estimate":false,"types":["specific kinds/species/models if identifiable"],"details":"colors, size, position, condition, activity"}],
-"people":{"count":0,"details":"age groups, clothing, actions, expressions"},
-"animals":[{"name":"","count":0,"details":""}],
-"dominant_colors":["..."],
-"lighting_mood":"lighting and atmosphere",
-"text_in_image":["any readable text or signs"],
-"notable_details":["other interesting features"]}
-Rules: list every distinct kind of object separately (e.g. pine trees vs oak trees as types under Trees, each animal species as its own entry). Count carefully; if too many to count exactly, give your best estimate and set count_is_estimate true. Use empty arrays or 0 when nothing applies. Be specific, never vague.`;
+      const $ = id => document.getElementById(id);
 
-      function el(t, c, x) {
-        const e = document.createElement(t);
-        if (c) e.className = c;
-        if (x != null) e.textContent = x;
-        return e;
+      function toast(msg, dur=2800) {
+        const t = $('toast'); t.textContent = msg; t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), dur);
       }
-      function card(title) {
-        const d = el("div", "card");
-        d.appendChild(el("h2", "", title));
-        $("out").appendChild(d);
-        return d;
-      }
-      function chips(d, arr) {
-        const w = el("div", "chips");
-        arr.forEach((a) => w.appendChild(el("span", "chip", a)));
-        d.appendChild(w);
-      }
+      function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+      function copyReport() { navigator.clipboard.writeText(lastReport).then(() => toast('✅ Copied!')); }
 
-      function render(r) {
-        const out = $("out");
-        out.innerHTML = "";
-        let d = card(
-          (r.scene_type || "Scene").replace(/^./, (m) => m.toUpperCase()),
-        );
-        d.appendChild(el("p", "", r.summary || ""));
-        const g = el("div", "grid");
-        [
-          ["Setting", r.setting],
-          ["Lighting & mood", r.lighting_mood],
-        ].forEach(([k, v]) => {
-          if (v) {
-            const x = el("div", "kv");
-            x.appendChild(el("b", "", k));
-            x.appendChild(el("span", "", v));
-            g.appendChild(x);
-          }
+      function switchTab(tab) {
+        currentTab = tab;
+        ['single','folder','local'].forEach(t => {
+          $('tab-'+t).classList.toggle('active', t===tab);
+          $('panel-'+t).classList.toggle('hidden', t!==tab);
         });
-        d.appendChild(g);
+        $('results').classList.remove('show');
+      }
 
-        const objs = r.objects || [];
-        if (objs.length) {
-          d = card("Objects detected (" + objs.length + " categories)");
-          objs.forEach((o) => {
-            const x = el("div", "obj"),
-              h = el("div", "oh");
-            h.appendChild(el("span", "on", o.name));
-            h.appendChild(
-              el("span", "cnt", (o.count_is_estimate ? "~" : "") + o.count),
-            );
-            x.appendChild(h);
-            if (o.types && o.types.length) {
-              const t = el("div", "chips");
-              t.style.marginTop = "6px";
-              o.types.forEach((a) => t.appendChild(el("span", "chip", a)));
-              x.appendChild(t);
-            }
-            if (o.details) x.appendChild(el("p", "od", o.details));
-            d.appendChild(x);
+      // Server health
+      async function checkServer() {
+        const badge = $('server-badge'), txt = $('server-txt');
+        try {
+          const r = await fetch(API+'/health',{signal:AbortSignal.timeout(3000)});
+          if (r.ok) { badge.className='status-badge online'; txt.textContent='API Online · :2026'; }
+          else throw 0;
+        } catch { badge.className='status-badge error'; txt.textContent='API Offline · :2026'; }
+      }
+      checkServer(); setInterval(checkServer,15000);
+
+      // Drop zone
+      const dz = $('drop-zone');
+      dz.addEventListener('click', () => $('file-input').click());
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+      dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); });
+      $('file-input').addEventListener('change', e => loadFile(e.target.files[0]));
+
+      function loadFile(file) {
+        if (!file || !file.type.startsWith('image/')) { toast('⚠️ Drop an image file'); return; }
+        const fr = new FileReader();
+        fr.onload = ev => {
+          const img = new Image();
+          img.onload = () => {
+            const MAX=1600, s=Math.min(1,MAX/Math.max(img.width,img.height));
+            const c = document.createElement('canvas');
+            c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+            c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+            c.toBlob(b => {
+              imageBlob=b;
+              $('preview-img').src=URL.createObjectURL(b);
+              $('preview-wrap').style.display='block';
+              dz.style.display='none';
+              $('btn-analyze').disabled=false;
+              setStatus('','');
+              $('results').classList.remove('show');
+            },'image/jpeg',0.88);
+          };
+          img.src=ev.target.result;
+        };
+        fr.readAsDataURL(file);
+      }
+
+      function clearImage() {
+        imageBlob=null;
+        $('preview-img').src=''; $('preview-wrap').style.display='none';
+        dz.style.display='block'; $('btn-analyze').disabled=true;
+        $('file-input').value=''; setStatus('','');
+        $('results').classList.remove('show');
+      }
+
+      document.addEventListener('paste', e => {
+        const f=Array.from(e.clipboardData.files).find(f=>f.type.startsWith('image/'));
+        if (f && currentTab==='single') loadFile(f);
+      });
+
+      $('img-url').addEventListener('input', () => {
+        if (!imageBlob) $('btn-analyze').disabled = !$('img-url').value.trim().startsWith('http');
+      });
+
+      function setStatus(msg, cls='') {
+        const el=$('status-msg'); el.innerHTML=''; el.className='status-msg'+( cls? ' '+cls :'');
+        if (msg) el.textContent=msg;
+      }
+      function spinStatus(msg) {
+        const el=$('status-msg'); el.className='status-msg'; el.innerHTML='';
+        const sp=document.createElement('div'); sp.className='spinner'; el.appendChild(sp);
+        const t=document.createElement('span'); t.textContent=msg; el.appendChild(t);
+      }
+      function setFolderStatus(msg, cls='') {
+        const el=$('folder-status'); el.innerHTML=''; el.className='status-msg'+( cls?' '+cls:'');
+        el.textContent=msg;
+      }
+      function spinFolderStatus(msg) {
+        const el=$('folder-status'); el.className='status-msg'; el.innerHTML='';
+        const sp=document.createElement('div'); sp.className='spinner'; el.appendChild(sp);
+        const t=document.createElement('span'); t.textContent=msg; el.appendChild(t);
+      }
+
+      function showProgress(on) { $('progress-wrap').classList.toggle('active',on); if(on) $('progress-bar').style.width='20%'; }
+      function setProgress(p) { $('progress-bar').style.width=p+'%'; }
+
+      async function analyzeImage() {
+        const btn=$('btn-analyze'); btn.disabled=true;
+        spinStatus('Analyzing…'); $('results').classList.remove('show'); showProgress(true);
+        try {
+          let body={};
+          if (imageBlob) {
+            const b64=await new Promise(res=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result.split(',')[1]); fr.readAsDataURL(imageBlob); });
+            body={image:b64};
+          } else {
+            const url=$('img-url').value.trim();
+            if (!url) throw new Error('Please upload an image or paste a URL.');
+            body={image_link:url};
+          }
+          setProgress(55);
+          const res=await fetch(API+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+          if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Server error '+res.status); }
+          setProgress(90); const data=await res.json(); setProgress(100);
+          setTimeout(()=>showProgress(false),600);
+          renderResults(data); setStatus('✅ Done','ok');
+        } catch(e) { showProgress(false); setStatus('❌ '+(e.message||'Analysis failed'),'err'); }
+        finally { btn.disabled=false; }
+      }
+
+      async function analyzeFolder() {
+        const url=$('folder-url').value.trim(), maxN=parseInt($('max-images').value)||50;
+        const btn=$('btn-folder');
+        if (!url) { toast('⚠️ Paste a Google Drive folder link.'); return; }
+        btn.disabled=true; $('folder-progress').classList.add('active');
+        $('results').classList.remove('show'); spinFolderStatus('Running folder analysis…');
+        try {
+          const res=await fetch(API+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder_link:url,max_images:maxN}),signal:AbortSignal.timeout(600000)});
+          if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Server error '+res.status); }
+          const data=await res.json();
+          $('folder-progress').classList.remove('active');
+          renderResults(data,true); setFolderStatus('✅ Done','ok');
+        } catch(e) { $('folder-progress').classList.remove('active'); setFolderStatus('❌ '+(e.message||'Failed'),'err'); }
+        finally { btn.disabled=false; }
+      }
+
+      function renderResults(data, isFolder=false) {
+        const report=data.report||'', summary=data.one_line_summary||'', counts=data.counts||{};
+        lastReport=report;
+        const scene=parseReport(report);
+
+        $('res-summary').textContent=summary||scene.oneLineSummary||'Analysis complete';
+        $('res-description').textContent=scene.description||'';
+
+        const meta=$('res-meta'); meta.innerHTML='';
+        if (scene.setting)   addPill(meta,'📍',scene.setting);
+        if (scene.timeOfDay) addPill(meta,'🕐',scene.timeOfDay);
+        if (scene.weather)   addPill(meta,'☁️',scene.weather);
+        if (scene.season)    addPill(meta,'🍂',scene.season);
+
+        renderCounts(counts,scene.subjects);
+
+        // Objects
+        if (scene.subjects&&scene.subjects.length) {
+          $('objects-card').style.display='block';
+          const list=$('objects-list'); list.innerHTML='';
+          scene.subjects.forEach((s,i)=>{
+            const row=document.createElement('div'); row.className='obj-row'; row.style.animationDelay=(i*40)+'ms';
+            const approx=s.certainty==='approximate';
+            row.innerHTML=`<div class="obj-badge ${approx?'approx':''}">${approx?'~':''}${s.count}</div><div style="flex:1"><div class="obj-name">${esc(s.name)}<span class="obj-cat">${CAT_ICONS[s.category]||'🔹'} ${esc(s.category)}</span></div>${s.details?`<div class="obj-details">${esc(s.details)}</div>`:''}</div>`;
+            list.appendChild(row);
           });
-        }
-        if (r.people && r.people.count > 0) {
-          d = card("People (" + r.people.count + ")");
-          d.appendChild(el("p", "", r.people.details || ""));
-        }
-        if (r.animals && r.animals.length) {
-          d = card("Animals");
-          r.animals.forEach((a) => {
-            const x = el("div", "obj"),
-              h = el("div", "oh");
-            h.appendChild(el("span", "on", a.name));
-            h.appendChild(el("span", "cnt", a.count));
-            x.appendChild(h);
-            if (a.details) x.appendChild(el("p", "od", a.details));
-            d.appendChild(x);
+        } else { $('objects-card').style.display='none'; }
+
+        // Colours
+        if (scene.colours&&scene.colours.length) {
+          $('colors-card').style.display='block';
+          const cc=$('colors-chips'); cc.innerHTML='';
+          scene.colours.forEach(c=>{
+            const hex=c.match(/#([0-9A-Fa-f]{6})/)?.[0];
+            const chip=document.createElement('span'); chip.className='chip color-chip';
+            chip.innerHTML=hex?`<span class="color-dot" style="background:${hex}"></span>${esc(c)}`:esc(c);
+            cc.appendChild(chip);
           });
-        }
-        if (r.dominant_colors && r.dominant_colors.length) {
-          d = card("Dominant colors");
-          chips(d, r.dominant_colors);
-        }
-        if (r.text_in_image && r.text_in_image.length) {
-          d = card("Text in image");
-          chips(d, r.text_in_image);
-        }
-        if (r.notable_details && r.notable_details.length) {
-          d = card("Other details");
-          const ul = el("ul");
-          ul.style.margin = "0";
-          ul.style.paddingLeft = "20px";
-          r.notable_details.forEach((n) => ul.appendChild(el("li", "", n)));
-          d.appendChild(ul);
+        } else { $('colors-card').style.display='none'; }
+
+        // Context
+        const ctx=[{k:'Setting',v:scene.setting},{k:'Time of day',v:scene.timeOfDay},{k:'Weather',v:scene.weather},{k:'Season',v:scene.season}].filter(x=>x.v);
+        if (ctx.length) {
+          $('context-card').style.display='block';
+          const cg=$('context-grid'); cg.innerHTML='';
+          ctx.forEach(({k,v})=>{const d=document.createElement('div');d.className='kv';d.innerHTML=`<div class="kv-label">${k}</div><div class="kv-val">${esc(v)}</div>`;cg.appendChild(d);});
+        } else { $('context-card').style.display='none'; }
+
+        // Notable
+        if (scene.notable&&scene.notable.length) {
+          $('features-card').style.display='block';
+          const fc=$('features-chips'); fc.innerHTML='';
+          scene.notable.forEach(n=>{const s=document.createElement('span');s.className='chip';s.textContent=n;fc.appendChild(s);});
+        } else { $('features-card').style.display='none'; }
+
+        // Text visible
+        if (scene.textVisible&&scene.textVisible.length) {
+          $('text-card').style.display='block';
+          const tc=$('text-chips'); tc.innerHTML='';
+          scene.textVisible.forEach(t=>{const s=document.createElement('span');s.className='chip';s.textContent=t;tc.appendChild(s);});
+        } else { $('text-card').style.display='none'; }
+
+        // Caveats
+        if (scene.caveats&&scene.caveats.length) {
+          $('caveats-card').style.display='block';
+          const cl=$('caveats-list'); cl.innerHTML='';
+          scene.caveats.forEach(c=>{const li=document.createElement('li');li.textContent=c;cl.appendChild(li);});
+        } else { $('caveats-card').style.display='none'; }
+
+        // Report
+        if (report) { $('report-card').style.display='block'; $('report-raw').textContent=report; }
+        else { $('report-card').style.display='none'; }
+
+        // Folder table
+        if (isFolder&&scene.photoList&&scene.photoList.length) {
+          $('folder-table-card').style.display='block';
+          const tb=$('folder-tbody'); tb.innerHTML='';
+          scene.photoList.forEach(p=>{
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td>${esc(p.n)}</td><td>${esc(p.s)}</td><td>${esc(p.a)}</td><td>${esc(p.p)}</td><td>${esc(p.v)}</td><td>${esc(p.o)}</td>`;
+            tb.appendChild(tr);
+          });
+        } else { $('folder-table-card').style.display='none'; }
+
+        $('results').classList.add('show');
+        $('results').scrollIntoView({behavior:'smooth',block:'start'});
+      }
+
+      function renderCounts(counts, subjects) {
+        const grid=$('counts-grid'); grid.innerHTML='';
+        const cats=[
+          {key:'animals',icon:'🐾',label:'Animals'},{key:'plants',icon:'🌿',label:'Plants'},
+          {key:'people',icon:'👤',label:'People'},{key:'vehicles',icon:'🚗',label:'Vehicles'},
+          {key:'objects',icon:'📦',label:'Objects'},{key:'buildings',icon:'🏢',label:'Buildings'},
+          {key:'electronic device',icon:'💻',label:'Devices'},{key:'other',icon:'🔹',label:'Other'},
+        ];
+        let rendered=0;
+        cats.forEach(({key,icon,label})=>{
+          const val=counts[key]||counts[label.toLowerCase()];
+          if (!val) return;
+          const total=(val.match(/(\d+)/g)||[]).map(Number).reduce((a,b)=>a+b,0);
+          if (!total) return;
+          const card=document.createElement('div'); card.className='count-card has-data';
+          card.innerHTML=`<span class="count-icon">${icon}</span><span class="count-num">${total}</span><span class="count-label">${label}</span><span class="count-detail">${esc(val)}</span>`;
+          grid.appendChild(card); rendered++;
+        });
+        if (!rendered&&subjects&&subjects.length) {
+          const total=subjects.reduce((a,s)=>a+(s.count||0),0);
+          const card=document.createElement('div'); card.className='count-card has-data';
+          card.innerHTML=`<span class="count-icon">🎯</span><span class="count-num">${total}</span><span class="count-label">Detected</span>`;
+          grid.appendChild(card);
         }
       }
 
-      $("go").onclick = async () => {
-        if (!blob) return;
-        $("go").disabled = true;
-        $("status").className = "";
-        $("status").textContent = "Analyzing…";
-        $("out").innerHTML = "";
-        try {
-          const sample = await claude.use("sample");
-          if (!sample)
-            throw {
-              message:
-                "The analysis feature isn’t available in this view. Open the page from claude.ai and allow access.",
-            };
-          const res = await sample(PROMPT, {
-            images: [blob],
-            modelTier: "default",
-            cache: false,
-          });
-          const m = res.text.match(/\{[\s\S]*\}/);
-          if (!m)
-            throw { message: "Couldn’t read the result. Please try again." };
-          render(JSON.parse(m[0]));
-          $("status").textContent = "Done";
-        } catch (e) {
-          $("status").className = "err";
-          $("status").textContent =
-            e.code === "not_granted"
-              ? "Permission was declined."
-              : e.message || "Something went wrong.";
+      function parseReport(md) {
+        const s={oneLineSummary:'',description:'',setting:'',timeOfDay:'',weather:'',season:'',subjects:[],colours:[],notable:[],textVisible:[],caveats:[],photoList:[]};
+        if (!md) return s;
+        let section='', gotDesc=false;
+        for (const raw of md.split('\n')) {
+          const line=raw.trim();
+          if (line.startsWith('## ')&&!s.oneLineSummary) { s.oneLineSummary=line.slice(3); continue; }
+          if (line.startsWith('### ')) { section=line.slice(4).toLowerCase(); continue; }
+          if (!gotDesc&&line&&!line.startsWith('#')&&!line.startsWith('-')&&!s.subjects.length) { s.description=line; gotDesc=true; continue; }
+          if (line.startsWith('- **Setting:**'))      { s.setting=line.replace('- **Setting:**','').trim(); continue; }
+          if (line.startsWith('- **Time of day:**'))  { s.timeOfDay=line.replace('- **Time of day:**','').trim(); continue; }
+          if (line.startsWith('- **Weather:**'))      { s.weather=line.replace('- **Weather:**','').trim(); continue; }
+          if (line.startsWith('- **Season:**'))       { s.season=line.replace('- **Season:**','').trim(); continue; }
+          if (line.startsWith('- **Dominant colour')){ s.colours=line.replace(/^.*colours?:\*\*/,'').trim().split(',').map(x=>x.trim()).filter(Boolean); continue; }
+          if ((section.includes('what is')||section.includes('object'))&&line.startsWith('- **')) {
+            const m=line.match(/\*\*([^*]+)\*\*\s*-?\s*(.*)/);
+            if (m) { const cm=m[1].match(/^(~?)(\d+)\s*x\s*(.+?)(\s*\(estimated\))?$/i); if (cm) s.subjects.push({count:parseInt(cm[2]),name:cm[3].trim(),certainty:(cm[1]||cm[4])?'approximate':'exact',category:'other',details:m[2]}); }
+          }
+          if (section.includes('notable')&&line.startsWith('-')) s.notable.push(line.replace(/^-\s*/,''));
+          if (section.includes('text')&&line.startsWith('-')) s.textVisible.push(line.replace(/^-\s*/,''));
+          if ((section.includes('note')||section.includes('limit')||section.includes('caveat'))&&line.startsWith('-')) s.caveats.push(line.replace(/^-\s*/,''));
+          if ((section.includes('photo by')||section.includes('photo-by'))&&line.startsWith('- **')) {
+            const m=line.match(/\*\*([^*]+)\*\*\s*-\s*([^(]+)\((.*)\)/);
+            if (m) { const parts=m[3].split(';').reduce((o,p)=>{const [k,v]=p.split(':');if(k&&v)o[k.trim().toLowerCase()]=v.trim();return o;},{}); s.photoList.push({n:m[1].trim(),s:m[2].trim(),a:parts.animals||'',p:parts.people||'',v:parts.vehicles||'',o:parts.objects||parts.other||''}); }
+          }
         }
-        $("go").disabled = false;
-      };
+        return s;
+      }
+
+      function addPill(container, icon, text) {
+        const d=document.createElement('div'); d.className='meta-pill';
+        d.innerHTML=`<span>${icon}</span><strong>${esc(text)}</strong>`;
+        container.appendChild(d);
+      }
+
+      // Local batch CSV reader
+      const rd=$('report-drop');
+      rd.addEventListener('dragover',e=>{e.preventDefault();rd.style.borderColor='var(--accent)';});
+      rd.addEventListener('dragleave',()=>rd.style.borderColor='var(--border2)');
+      rd.addEventListener('drop',e=>{e.preventDefault();rd.style.borderColor='var(--border2)';loadReportFile(e.dataTransfer.files[0]);});
+      $('report-file').addEventListener('change',e=>loadReportFile(e.target.files[0]));
+
+      function loadReportFile(file) {
+        if (!file) return;
+        if (file.name.endsWith('.csv')) { const fr=new FileReader(); fr.onload=e=>renderCsvReport(e.target.result); fr.readAsText(file); }
+        else toast('⚠️ Drop a .csv file (exported from run_local_detection.py)');
+      }
+
+      function renderCsvReport(csv) {
+        const lines=csv.split('\n').map(l=>l.trim()).filter(Boolean);
+        if (lines.length<2) { toast('⚠️ Empty CSV'); return; }
+        const hdrs=parseCsvLine(lines[0]);
+        const rows=lines.slice(1).map(parseCsvLine);
+        const col=names=>{ for (const n of names){const i=hdrs.findIndex(h=>h.toLowerCase().includes(n.toLowerCase())); if(i!==-1)return i;} return -1; };
+        const sumCol=col(['summary','one_line']), fileCol=col(['file name','filename','file']), descCol=col(['detailed description','description']),
+              aniCol=col(['animals']), plCol=col(['plants']), pepCol=col(['people']), vehCol=col(['vehicles']), colCol=col(['dominant colour','color']),
+              setCol=col(['setting']), timCol=col(['time of day','time']), notCol=col(['notable']);
+
+        const counts={};
+        let aT=0,pT=0,vT=0;
+        rows.forEach(r=>{ aT+=parseInt((r[aniCol]||'').match(/(\d+)/)?.[1])||0; pT+=parseInt((r[pepCol]||'').match(/(\d+)/)?.[1])||0; vT+=parseInt((r[vehCol]||'').match(/(\d+)/)?.[1])||0; });
+        if(aT) counts.animals=aT+' total'; if(pT) counts.people=pT+' total'; if(vT) counts.vehicles=vT+' total';
+
+        const photoList=rows.map(r=>({n:r[fileCol]||'—',s:r[sumCol]||'—',a:r[aniCol]||'',p:r[pepCol]||'',v:r[vehCol]||'',o:''}));
+        const summary=`${rows.length} images from local batch report`;
+        const reportMd=[`## Loaded ${rows.length} records from run_local_detection.py`,'',
+          rows[0]&&descCol>=0?rows[0][descCol]:'',
+          '','### Context',
+          setCol>=0?`- **Setting:** ${rows[0][setCol]||''}`:null,
+          timCol>=0?`- **Time of day:** ${rows[0][timCol]||''}`:null,
+          colCol>=0?`- **Dominant colours:** ${rows[0][colCol]||''}`:null,
+          '','### Photo by photo',
+          ...photoList.map(p=>`- **${p.n}** - ${p.s} (animals: ${p.a}; people: ${p.p}; vehicles: ${p.v})`),
+        ].filter(x=>x!=null).join('\n');
+
+        renderResults({report:reportMd,one_line_summary:summary,counts},false);
+        $('folder-table-card').style.display='block';
+        const tb=$('folder-tbody'); tb.innerHTML='';
+        photoList.forEach(p=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(p.n)}</td><td>${esc(p.s)}</td><td>${esc(p.a)}</td><td>${esc(p.p)}</td><td>${esc(p.v)}</td><td>—</td>`;tb.appendChild(tr);});
+        toast(`✅ Loaded ${rows.length} records`);
+      }
+
+      function parseCsvLine(line) {
+        const r=[]; let cur='',inQ=false;
+        for (const ch of line) { if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){r.push(cur);cur='';}else{cur+=ch;} }
+        r.push(cur); return r.map(s=>s.replace(/^"|"$/g,'').trim());
+      }
     </script>
   </body>
 </html>
