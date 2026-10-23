@@ -394,6 +394,33 @@
           <div class="summary-meta" id="res-meta"></div>
         </div>
 
+        <!-- EXPORT ACTION HUB -->
+        <div class="card" id="export-card" style="margin-bottom:16px;border-color:rgba(74,222,128,.35);background:linear-gradient(135deg,rgba(16,185,129,.08),transparent)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-weight:600;font-size:15px;color:var(--tx);display:flex;align-items:center;gap:6px">
+                <span>📊</span> <span>Export Full Report</span>
+                <span id="export-records-badge" style="background:var(--accent-dim);color:var(--accent);font-size:11px;padding:2px 8px;border-radius:999px;font-family:var(--mono)">0 records</span>
+              </div>
+              <div style="font-size:12px;color:var(--tx2);margin-top:2px">
+                Formatted with Jyot standardized schema for instant import into CSV, Excel, or Google Sheets.
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="btn-export-csv" onclick="exportReportCSV()" style="padding:8px 14px;font-size:13px">
+                📥 Download CSV
+              </button>
+              <button class="btn btn-ghost" id="btn-export-excel" onclick="exportReportExcel()" style="padding:8px 14px;font-size:13px">
+                📗 Download Excel (.xlsx)
+              </button>
+              <button class="btn btn-ghost" id="btn-copy-sheets" onclick="copyForGoogleSheets()" style="padding:8px 14px;font-size:13px" title="Copies tab-separated table ready to paste directly into Google Sheets (Ctrl+V)">
+                📑 Copy for Google Sheets
+              </button>
+            </div>
+          </div>
+        </div>
+
+
         <div class="counts-grid" id="counts-grid"></div>
 
         <div class="card" id="objects-card" style="display:none">
@@ -456,6 +483,10 @@
       let imageBlob = null;
       let currentTab = 'single';
       let lastReport = '';
+      let currentRecords = [];
+      let lastData = null;
+      let lastCsvFile = '';
+      let lastExcelFile = '';
 
       const $ = id => document.getElementById(id);
 
@@ -572,12 +603,16 @@
             body={image_link:url};
           }
           setProgress(55);
-          const res=await fetch(API+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+          const res=await fetch(API+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(180000)});
           if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Server error '+res.status); }
           setProgress(90); const data=await res.json(); setProgress(100);
           setTimeout(()=>showProgress(false),600);
           renderResults(data); setStatus('✅ Done','ok');
-        } catch(e) { showProgress(false); setStatus('❌ '+(e.message||'Analysis failed'),'err'); }
+        } catch(e) {
+          showProgress(false);
+          const isTimeout = e.name==='TimeoutError' || e.name==='AbortError';
+          setStatus('❌ '+(isTimeout ? 'Request timed out — Gemini API is under high load. Please retry in a moment.' : (e.message||'Analysis failed')),'err');
+        }
         finally { btn.disabled=false; }
       }
 
@@ -593,14 +628,74 @@
           const data=await res.json();
           $('folder-progress').classList.remove('active');
           renderResults(data,true); setFolderStatus('✅ Done','ok');
-        } catch(e) { $('folder-progress').classList.remove('active'); setFolderStatus('❌ '+(e.message||'Failed'),'err'); }
+        } catch(e) {
+          $('folder-progress').classList.remove('active');
+          const isTimeout = e.name==='TimeoutError' || e.name==='AbortError';
+          setFolderStatus('❌ '+(isTimeout ? 'Request timed out — try fewer images or retry later.' : (e.message||'Failed')),'err');
+        }
         finally { btn.disabled=false; }
       }
 
       function renderResults(data, isFolder=false) {
+        lastData = data;
         const report=data.report||'', summary=data.one_line_summary||'', counts=data.counts||{};
         lastReport=report;
+        lastCsvFile = data.csv_file || '';
+        lastExcelFile = data.excel_file || '';
+
         const scene=parseReport(report);
+
+        // Normalize or build current records for export
+        if (data.records && Array.isArray(data.records) && data.records.length) {
+          currentRecords = data.records;
+        } else if (scene.photoList && scene.photoList.length) {
+          currentRecords = scene.photoList.map(p => ({
+            "Analysed At": new Date().toISOString().replace('T',' ').substring(0,19),
+            "File Name": p.n,
+            "Image Link": "Google Drive / Folder",
+            "Summary": p.s,
+            "Detailed Description": p.s,
+            "Animals": p.a,
+            "Plants & Trees": "",
+            "People": p.p,
+            "Vehicles": p.v,
+            "electronic device": "",
+            "Other Objects": p.o,
+            "Setting": scene.setting || "Batch Folder",
+            "Time of Day": scene.timeOfDay || "Varied",
+            "Weather": scene.weather || "Varied",
+            "Season": scene.season || "Varied",
+            "Dominant Colours": (scene.colours || []).join(', '),
+            "Notable Features": (scene.notable || []).join('; '),
+            "Notes & Limits": (scene.caveats || []).join('; ')
+          }));
+        } else {
+          // Single analysis record
+          currentRecords = [{
+            "Analysed At": new Date().toISOString().replace('T',' ').substring(0,19),
+            "File Name": "Single_Analysis.jpg",
+            "Image Link": $('img-url').value.trim() || "Local Upload",
+            "Summary": summary || scene.oneLineSummary,
+            "Detailed Description": scene.description || summary,
+            "Animals": counts.animals || "",
+            "Plants & Trees": counts.plants || "",
+            "People": counts.people || "",
+            "Vehicles": counts.vehicles || "",
+            "electronic device": counts['electronic device'] || "",
+            "Other Objects": counts.other || counts.objects || "",
+            "Setting": scene.setting || "",
+            "Time of Day": scene.timeOfDay || "",
+            "Weather": scene.weather || "",
+            "Season": scene.season || "",
+            "Dominant Colours": (scene.colours || []).join(', '),
+            "Notable Features": (scene.notable || []).join('; '),
+            "Notes & Limits": (scene.caveats || []).join('; ')
+          }];
+        }
+
+        // Update badge
+        const badge = $('export-records-badge');
+        if (badge) badge.textContent = `${currentRecords.length} record${currentRecords.length === 1 ? '' : 's'}`;
 
         $('res-summary').textContent=summary||scene.oneLineSummary||'Analysis complete';
         $('res-description').textContent=scene.description||'';
@@ -610,6 +705,7 @@
         if (scene.timeOfDay) addPill(meta,'🕐',scene.timeOfDay);
         if (scene.weather)   addPill(meta,'☁️',scene.weather);
         if (scene.season)    addPill(meta,'🍂',scene.season);
+
 
         renderCounts(counts,scene.subjects);
 
@@ -798,6 +894,128 @@
         for (const ch of line) { if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){r.push(cur);cur='';}else{cur+=ch;} }
         r.push(cur); return r.map(s=>s.replace(/^"|"$/g,'').trim());
       }
+
+      const SPREADSHEET_COLUMNS = [
+        "Analysed At", "File Name", "Image Link", "Summary", "Detailed Description",
+        "Animals", "Plants & Trees", "People", "Vehicles", "electronic device",
+        "Other Objects", "Setting", "Time of Day", "Weather", "Season",
+        "Dominant Colours", "Notable Features", "Notes & Limits"
+      ];
+
+      function convertRecordsToCsv(records) {
+        if (!records || !records.length) return '';
+        const escapeCell = val => {
+          if (val === null || val === undefined) return '""';
+          const str = String(val).replace(/"/g, '""');
+          return `"${str}"`;
+        };
+        const header = SPREADSHEET_COLUMNS.map(escapeCell).join(',');
+        const rows = records.map(r => SPREADSHEET_COLUMNS.map(col => escapeCell(r[col] !== undefined ? r[col] : '')).join(','));
+        return [header, ...rows].join('\r\n');
+      }
+
+      function downloadBlob(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      async function exportReportCSV() {
+        if (!currentRecords || !currentRecords.length) {
+          toast('⚠️ No report records to export. Run an analysis first.');
+          return;
+        }
+        // Try backend endpoint first
+        try {
+          const resp = await fetch(API + '/export/csv');
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'image_detection_analysis_report.csv';
+            a.click();
+            toast('✅ CSV report downloaded');
+            return;
+          }
+        } catch (_) {}
+
+        // Fallback: direct browser-side CSV generation
+        const csvStr = convertRecordsToCsv(currentRecords);
+        downloadBlob(csvStr, 'image_detection_analysis_report.csv', 'text/csv;charset=utf-8;');
+        toast('✅ CSV report exported');
+      }
+
+      async function exportReportExcel() {
+        if (!currentRecords || !currentRecords.length) {
+          toast('⚠️ No report records to export.');
+          return;
+        }
+        // If server has generated the xlsx file, fetch it directly
+        try {
+          const resp = await fetch(API + '/export/xlsx');
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'image_detection_analysis_report.xlsx';
+            a.click();
+            toast('✅ Excel (.xlsx) report downloaded');
+            return;
+          }
+        } catch (_) {}
+
+        // Alternatively request dynamic export
+        try {
+          const resp = await fetch(API + '/export/custom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: 'xlsx', records: currentRecords })
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'image_detection_analysis_report.xlsx';
+            a.click();
+            toast('✅ Excel (.xlsx) report exported');
+            return;
+          }
+        } catch (e) {
+          // Fallback to CSV if Excel endpoint unreachable
+          exportReportCSV();
+        }
+      }
+
+      function copyForGoogleSheets() {
+        if (!currentRecords || !currentRecords.length) {
+          toast('⚠️ No report records to copy.');
+          return;
+        }
+        const clean = v => (v === null || v === undefined) ? '' : String(v).replace(/[\t\r\n]+/g, ' ');
+        const header = SPREADSHEET_COLUMNS.join('\t');
+        const rows = currentRecords.map(r => SPREADSHEET_COLUMNS.map(col => clean(r[col] !== undefined ? r[col] : '')).join('\t'));
+        const tsv = [header, ...rows].join('\n');
+
+        navigator.clipboard.writeText(tsv).then(() => {
+          toast('📋 Copied! Paste directly into Google Sheets (Ctrl+V)');
+        }).catch(() => {
+          // Fallback copy
+          const ta = document.createElement('textarea');
+          ta.value = tsv;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          toast('📋 Copied! Paste directly into Google Sheets (Ctrl+V)');
+        });
+      }
+
     </script>
   </body>
 </html>
