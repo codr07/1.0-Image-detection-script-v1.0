@@ -305,7 +305,7 @@
           <h1>🔍 Image <span>Detective</span></h1>
           <p>Hybrid YOLOv8 + Gemini Vision · Zero Hallucination · Local + Cloud Analysis</p>
         </div>
-        <div id="server-badge" class="status-badge" title="API server at localhost:2026">
+        <div id="server-badge" class="status-badge" title="Python API at localhost:5050">
           <span class="dot"></span>
           <span id="server-txt">Checking API…</span>
         </div>
@@ -450,7 +450,7 @@
     <div id="toast"></div>
 
     <script>
-      const API = 'http://localhost:2026';
+      const API = 'http://localhost:5050';
       const CAT_ICONS = { animal:'🐾',animals:'🐾',plant:'🌿',plants:'🌿',person:'👤',people:'👤',vehicle:'🚗',vehicles:'🚗',building:'🏢',buildings:'🏢',object:'📦',objects:'📦','electronic device':'💻',other:'🔹' };
 
       let imageBlob = null;
@@ -480,9 +480,9 @@
         const badge = $('server-badge'), txt = $('server-txt');
         try {
           const r = await fetch(API+'/health',{signal:AbortSignal.timeout(3000)});
-          if (r.ok) { badge.className='status-badge online'; txt.textContent='API Online · :2026'; }
+          if (r.ok) { badge.className='status-badge online'; txt.textContent='API Online · :5050'; }
           else throw 0;
-        } catch { badge.className='status-badge error'; txt.textContent='API Offline · :2026'; }
+        } catch { badge.className='status-badge error'; txt.textContent='API Offline · :5050'; }
       }
       checkServer(); setInterval(checkServer,15000);
 
