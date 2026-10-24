@@ -67,11 +67,11 @@ MAX_IMAGE_DIM   = 1600
 MAX_BYTES       = 30 * 1024 * 1024   # 30 MB
 
 GEMINI_MODELS   = [
-    "gemini-3.5-flash",
-    "gemini-3-flash-preview",
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
-]  # tried in order with automatic fallback
+    "gemini-2.5-flash",        # Latest flagship — highest quality, best quota (2025)
+    "gemini-2.0-flash",        # Previous flagship — reliable & fast
+    "gemini-1.5-flash",        # High-throughput stable fallback
+    "gemini-1.5-flash-8b",     # Lightest fastest fallback
+]  # tried in order; highest accessible model attempted first for maximum analysis quality
 
 # YOLO category → display group
 CATEGORY_MAP = {
@@ -108,29 +108,56 @@ else:
 
 # ─── Pydantic schemas ───────────────────────────────────────────────────────
 
+class PersonProfile(BaseModel):
+    person_id:       str  = Field(description="Short label, e.g. 'Person 1 (foreground-left)'")
+    apparent_gender: str  = Field(description="'Male', 'Female', 'Indeterminate', or 'Unknown'")
+    apparent_age:    str  = Field(description="Age estimate range, e.g. '60–70 years', 'Child (~8)', 'Young adult (~25)'")
+    religion:        str  = Field(description="Inferred religion or spiritual tradition based on attire, symbols, and context. e.g. 'Hindu — Vaishnava', 'Jain monk (Digambara)', 'Sikh', 'Muslim', 'Christian priest', 'Buddhist monk', 'Secular / Not determinable'. Always qualify uncertainty.")
+    role_or_status:  str  = Field(description="Social/occupational role: e.g. 'Swami / monk', 'Priest conducting puja', 'Devotee / layperson', 'Ascetic', 'Pilgrim', 'Attendant', 'Guard / security', 'Tourist', 'Child / student'")
+    attire:          str  = Field(description="Detailed clothing description: colour, garment type, fabric texture, headwear, footwear, jewelry or sacred marks (tilak, sacred thread, turban colour, etc.). e.g. 'White cotton dhoti, bare upper body, saffron uttariya shawl, vibhuti (ash) markings on forehead'")
+    activity:        str  = Field(description="Exactly what this person is doing at the moment the photo was taken. e.g. 'Performing aarti — holding a lit diya and waving it in a clockwise arc before the deity', 'Seated in padmasana posture, eyes closed, meditating', 'Distributing prasad from a silver thali', 'Listening to a discourse with hands folded in namaskar'")
+    posture:         str  = Field(description="Body posture and orientation: e.g. 'Standing upright facing the shrine', 'Seated cross-legged on the floor', 'Bowing with head lowered', 'Walking toward camera', 'Kneeling in prostration'")
+    emotion_or_expression: str = Field(description="Observable facial/body expression: e.g. 'Serene, eyes half-closed in devotion', 'Smiling broadly', 'Concentrated and focused', 'Reverent, head bowed', 'Joyful, arms raised', 'Neutral / not clearly visible'")
+    cultural_markers: str = Field(description="Any visible cultural, religious, or ceremonial markers: e.g. 'Red sindoor in hair parting (indicates married Hindu woman)', 'Janeo / sacred thread visible across chest', 'Tulsi mala around neck', 'Saffron dhwaja flag in hand', 'Mala beads in right hand — counting with thumb'. Use 'None visible' if absent.")
+    position_in_frame: str = Field(description="Where in the image: e.g. 'Foreground-centre', 'Background-left', 'Mid-frame right', 'Partially occluded at right edge'")
+
 class GroundedItem(BaseModel):
-    name: str     = Field(description="Object name, e.g. 'person in red jacket'")
+    name: str     = Field(description="Object name, e.g. 'lit silver diya', 'ornate marble idol of Mahavir'")
     category: str = Field(description="'people','animals','plants','vehicles','electronic device','other'")
     count: int    = Field(description="Exact count visible in frame")
-    details: str  = Field(description="Colour, posture, position")
+    details: str  = Field(description="Colour, material, position, condition, and cultural significance if applicable")
 
 class GeminiScene(BaseModel):
-    one_line_summary:    str              = Field(description="One accurate, professional sentence summarizing the scene, primary actors, and core action.")
-    detailed_description:str             = Field(description="Comprehensive descriptive paragraph systematically covering foreground, midground, and background with architectural, lighting, and textural context.")
-    animals:             str              = Field(description="Visible animals formatted as 'count x name' (e.g. '1 x dog') or exactly 'None detected'")
-    plants_and_trees:    str              = Field(description="Floral offerings, garlands, foliage, plants formatted as 'count x name' (e.g. '3 x floral garlands (estimated)') or exactly 'None detected'")
-    people:              str              = Field(description="People visible with attire/role descriptions (e.g. '1 x elderly man in white robes, 1 x man with shaved head') or 'None detected'. Include '(estimated)' for groups.")
-    vehicles:            str              = Field(description="Visible vehicles formatted as 'count x name' or exactly 'None detected'")
-    electronic_devices:  str              = Field(description="Visible phones, cameras, screens, laptops formatted as 'count x name' or exactly 'None detected'")
-    other_objects:       str              = Field(description="Specific sacred, structural, or focal items (e.g. '1 x golden deity statue, 1 x embroidered orange bag, 1 x carved white marble shrine') or 'None detected'")
-    setting:             str              = Field(description="Specific scene setting, e.g. 'Temple interior, likely a Jain temple', 'Indoor assembly hall', 'Outdoor courtyard'")
-    time_of_day:         str              = Field(description="e.g. 'Daytime', 'Daytime (bright sunlight outside)', 'Evening', 'Artificial indoor lighting'")
-    weather:             str              = Field(description="e.g. 'Indoors', 'Clear Indoors', 'Sunny', 'Not applicable', 'Not visible'")
-    season:              str              = Field(description="e.g. 'Unknown', 'Not applicable', 'Summer', 'Winter'")
-    dominant_colours:    list[str]        = Field(description="Accurate primary colors seen, e.g. ['White', 'Gold', 'Orange', 'Pink', 'Green']")
-    notable_features:    list[str]        = Field(description="Key focal highlights, architectural details, Devanagari/signage text if visible")
-    verified_items:      list[GroundedItem] = Field(description="All confirmed physical objects actually present in frame")
-    caveats:             str              = Field(description="Professional limits note covering occlusions, depth of field blur, lighting glare, or unverified compositional elements (e.g. 'The exact identity of individuals and background painting cannot be definitively resolved due to distance.')")
+    one_line_summary:    str  = Field(description="One precise, information-dense sentence capturing WHO is present, WHAT they are doing, and WHERE. e.g. 'A Jain Digambara monk (foreground) conducts a shastipuja ceremony before a marble idol of Mahavir inside a temple, attended by a group of approximately 20 white-clad female devotees.'")
+    detailed_description: str = Field(description="""
+A richly detailed, multi-paragraph description covering ALL of the following, in order:
+
+PARA 1 — PEOPLE & ACTIONS: For every visible person, describe in sequence: their role/identity, religion or sect, attire (colours, garments, sacred marks), exact activity at the moment of capture, posture, and emotional expression. Describe inter-person relationships and interactions (e.g. 'The monk addresses the congregation while a younger assistant holds the incense burner'). Quote visible text on clothing/banners.
+
+PARA 2 — SCENE & SETTING: Architecture, layout, furniture/altars/shrines. Materials (marble, sandstone, wood). Decorations (floral garlands, rangoli, flags, banners). Lighting quality and source (artificial, natural, flame). Overall atmosphere and mood.
+
+PARA 3 — CULTURAL & RELIGIOUS CONTEXT: What ceremony or occasion is likely taking place. Specific rituals visible. Sacred objects present and their significance. Any iconography, deities, or symbols identifiable. Cultural tradition and denomination best supported by evidence.
+
+PARA 4 — SPATIAL LAYOUT: Foreground, midground, background contents. Depth and scale. Camera angle and perspective.
+
+PARA 5 — TECHNICAL OBSERVATIONS: Image quality, any motion blur, occlusions, or areas where detail is unclear.""")
+    person_profiles:     list[PersonProfile] = Field(description="One entry PER individually distinguishable person in the image. If a crowd is present, profile the most clearly visible individuals and add a group summary entry.")
+    religion_culture_summary: str = Field(description="Overall cultural/religious context of the entire scene: tradition, sect, occasion, and confidence level. e.g. 'Jain (Digambara sect) puja ceremony — high confidence based on white attire, absence of stitched clothing on monk, and specific ritual implements present.'")
+    ceremony_or_event:   str  = Field(description="Name and description of the event/ceremony if identifiable: e.g. 'Aarti ceremony (Hindu evening prayer ritual)', 'Satsang / devotional assembly', 'Abhishek (ritual bathing of the deity)', 'Paryushana festival gathering', 'Procession / Yatra', 'Meditation session', 'Unknown / general gathering'")
+    animals:             str  = Field(description="Visible animals: 'count x name' or 'None detected'")
+    plants_and_trees:    str  = Field(description="Floral offerings, garlands, foliage: 'count x name' or 'None detected'")
+    people:              str  = Field(description="Concise count summary with religion/role breakdown. e.g. '1 x Digambara Jain monk (foreground), 20+ x white-clad female Jain devotees (seated, background)'")
+    vehicles:            str  = Field(description="Visible vehicles: 'count x name' or 'None detected'")
+    electronic_devices:  str  = Field(description="Visible phones, cameras, screens: 'count x name' or 'None detected'")
+    other_objects:       str  = Field(description="Key religious/sacred/structural items with material and significance: e.g. '1 x brass incense burner (dhoop), 1 x silver thali with prasad, 1 x marble Jain tirthankara idol (approx. 1.5m height), multiple orange flower garlands' or 'None detected'")
+    setting:             str  = Field(description="Specific venue/setting with confidence: e.g. 'Jain temple interior (upashraya / prayer hall) — high confidence', 'Outdoor religious procession', 'Domestic puja room'")
+    time_of_day:         str  = Field(description="e.g. 'Daytime', 'Evening — artificial lighting suggests evening ceremony', 'Artificial indoor lighting'")
+    weather:             str  = Field(description="e.g. 'Indoors', 'Sunny outdoors', 'Not visible'")
+    season:              str  = Field(description="e.g. 'Unknown', 'Summer', 'Winter festival season'")
+    dominant_colours:    list[str] = Field(description="Primary colours visible across the image")
+    notable_features:    list[str] = Field(description="Key focal points, significant details, any visible text/signage (quote exactly), unique cultural artifacts")
+    verified_items:      list[GroundedItem] = Field(description="All confirmed physical objects in frame")
+    caveats:             str  = Field(description="Professional limits: occlusions, distance-limited identification, motion blur, areas of uncertainty in person identification or religious attribution.")
 
 
 class AnalyzeRequest(BaseModel):
@@ -301,32 +328,67 @@ def _gemini_analysis(img_bytes: bytes, detections: list[dict],
         for d in detections
     ) or "None detected by local model"
 
-    prompt = f"""You are a senior computer vision analyst producing an official enterprise detection spreadsheet report.
-ELIMINATE ALL ILLUSIONS AND HALLUCINATIONS:
-1. Ground Truth Verification:
-   - YOLO bounding boxes:
-{yolo_text}
-   - YOLO frequently produces optical illusion misclassifications in temple, religious, cultural or interior environments (e.g., misidentifying embroidered bags or ceremonial items as 'cake', or wall statues/carvings as living people).
-   - Carefully cross-examine each detection against the actual pixel content. Correct all false positive YOLO labels.
-   - Do NOT invent people, animals, or objects that are not distinctly present.
+    prompt = f"""You are a world-class forensic image analyst and cultural anthropologist specialising in South Asian religious traditions, world religions, and human behaviour. Produce the most detailed, precise, and professionally rigorous analysis possible.
 
-2. Strict Column-by-Column Reporting Rules (matching Jyot standards):
-   - "Animals": Format as exact items (e.g. '1 x dog', '2 x birds') or EXACTLY "None detected".
-   - "Plants & Trees": Floral garlands, sacred offerings, trees, potted plants (e.g. '3 x floral garlands (estimated)') or EXACTLY "None detected".
-   - "People": Specific count and role/attire (e.g. '1 x elderly man in white robes, 1 x man with shaved head', or '25 x Jain monks (estimated)') or EXACTLY "None detected".
-   - "Vehicles": Format as exact items or EXACTLY "None detected".
-   - "electronic_devices": Visible phones, cameras, laptops or EXACTLY "None detected".
-   - "other_objects": Specific physical artifacts (e.g. '1 x golden deity statue, 1 x embroidered orange bag, 1 x carved white marble shrine') or EXACTLY "None detected".
-   - "Summary": One accurate, concise sentence summarizing the scene, primary actors, and core action.
-   - "Detailed Description": Comprehensive descriptive paragraph covering foreground, midground, background, lighting, and architecture.
-   - "Setting": e.g. 'Temple interior, likely a Jain temple', 'Indoor assembly hall', 'Outdoor street'.
-   - "Time of Day": e.g. 'Daytime', 'Daytime (bright sunlight outside)', 'Evening', 'Artificial indoor lighting'.
-   - "Weather": e.g. 'Indoors', 'Clear Indoors', 'Sunny', 'Not applicable', 'Not visible'.
-   - "Season": e.g. 'Unknown', 'Not applicable', 'Summer'.
-   - "Dominant Colours": e.g. ['White', 'Gold', 'Orange', 'Pink', 'Green'].
-   - "Notable Features": Key architectural, artistic, or cultural focal points, and any visible signage/text (e.g. 'Text: Devanagari text on upper right banner').
-   - "Notes & Limits": Professional technical caveats on occlusions, motion/depth blur, optical glare, or limitations on identifying specific individuals or metallic compositions.
+═══════════════════════════════════════════════════════
+MISSION 1 — DEEP PERSON ANALYSIS (HIGHEST PRIORITY)
+═══════════════════════════════════════════════════════
+For EVERY individually visible person, document ALL of the following:
+
+  1. ROLE & IDENTITY: What is their role? (monk, swami, priest, pujari, devotee, layperson, attendant, guard, tourist, child, elder)
+
+  2. RELIGION & SECT: Infer from attire, symbols, marks. Look for:
+     • Colours: saffron/ochre=Hindu renunciant/Buddhist, white=Jain monk/Christian, green=Islamic, navy=Sikh Nihang, plain white=general Hindu
+     • Head covering: turban colour+style (Sikh: navy/blue/pink/orange/white), skull cap (Muslim), tilak (Hindu sect identifier)
+     • Sacred marks: tilak type (Vaishnav=U-shape, Shaiva=horizontal lines/trident, Varkari=vertical), sindoor, bindi, vibhuti/ash
+     • Sacred threads: yajnopavita across chest, kanthi mala, rudraksha, tulsi mala
+     • Specific garments: dhoti (style+drape), kurta, cassock, cassock+cincture, hijab+abaya, shalwar kameez
+     • Objects held: mala beads+material (rudraksha=Shiva, tulsi=Vishnu, crystal=Jain), diya, conch, bell, scripture
+     State CONFIDENCE LEVEL for every religious attribution.
+
+  3. EXACT ACTIVITY (be highly specific):
+     NOT "praying" — instead: "Standing before the shrine in a slight forward lean with palms pressed together at chest height in anjali mudra, eyes closed, lips moving in silent recitation"
+     NOT "sitting" — instead: "Seated in sukhasana (cross-legged) on the marble floor, holding a string of 108 tulsi beads in the right hand, thumb moving bead by bead"
+
+  4. ATTIRE (every detail): Garment names, colours (exact shade), fabric, headwear, footwear or bare feet, jewelry, sacred accessories.
+
+  5. APPARENT AGE RANGE & GENDER.
+
+  6. POSTURE: Standing/seated/kneeling/prostrate. Body orientation. Arm/hand position.
+
+  7. EMOTIONAL EXPRESSION: Serene/devotional/joyful/concentrated/reverent/distressed — be specific about what visible cues indicate this.
+
+  8. CULTURAL MARKERS: Any specific symbol, mark, object held/worn that indicates community, caste, sect, marital status, or rank.
+
+  9. POSITION IN FRAME: Foreground/midground/background + left/centre/right.
+
+  10. INTERACTIONS: Are they engaging with another person, an object, or the deity? How?
+
+═══════════════════════════════════════════════════════
+MISSION 2 — SCENE, CEREMONY & CULTURAL CONTEXT
+═══════════════════════════════════════════════════════
+  • CEREMONY/OCCASION: Identify as specifically as possible (not just "puja" — specify: abhishek, aarti, pravachan/discourse, diksha initiation, yagna, satsang, procession/yatra, shobha yatra, annaprasad distribution, etc.)
+  • SACRED OBJECTS: Name them in the tradition's own language (dhoop burner, panch-amrit thali, chaur sahib / chowri, mangalsutra, etc.) with their ritual function.
+  • ARCHITECTURE: Temple style (Nagara/Dravidian/Hemadpanthi), material (marble, sandstone, granite), shrine type.
+  • Quote ALL VISIBLE TEXT exactly, phonetically if Devanagari/Gujarati.
+  • Identify DEITIES / TIRTHANKARAS / GURUS depicted — describe their attributes, mudra, vehicle/wahana.
+
+═══════════════════════════════════════════════════════
+GROUND TRUTH — YOLO DETECTIONS (position guide only)
+═══════════════════════════════════════════════════════
+{yolo_text}
+IMPORTANT: YOLO frequently misclassifies religious/cultural items. Override all YOLO labels with your own direct visual analysis.
+
+═══════════════════════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════════════════════
+  ✓ Only describe what is DIRECTLY and CLEARLY visible.
+  ✓ State confidence: "confirmed", "likely", "possibly", "cannot determine".
+  ✓ For crowds: profile the 5 most visible individuals in full detail, then: "+ approximately N additional [role] in [attire], engaged in [activity]".
+  ✓ The detailed_description field MUST be your richest, most comprehensive output — minimum 5 detailed paragraphs.
+  ✗ Do NOT hallucinate, invent, or assume beyond visible evidence, calculate object depth in the mage to remove halucination, it is a spiritual image frolder, work accordingly to religious and cultural sentements also and they are Gunnvardhak Murtipujak Jain Sangha of Ahmedabad, Gujarat, Bangalore.
 """
+
 
     import google.genai as genai
 
@@ -361,6 +423,9 @@ ELIMINATE ALL ILLUSIONS AND HALLUCINATIONS:
             # Skip quickly on 404 (model not available) or known bad status
             if "404" in err_str or "NOT_FOUND" in err_str:
                 print(f"  Gemini {model} not available (404) — skipping")
+                continue
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                print(f"  Gemini {model} quota exhausted (429) — instantly falling back to next model")
                 continue
             print(f"  Gemini {model} failed: {e}")
             continue
@@ -593,33 +658,39 @@ async def _analyse_bytes(raw: bytes) -> AnalyzeResponse:
 
 def _download_drive_folder(link: str, target_dir: Path, max_images: int = 50) -> list[Path]:
     target_dir.mkdir(parents=True, exist_ok=True)
+    # Match various Drive URL formats (folders/<id>, id=<id>, u/<n>/folders/<id>, etc.)
     folder_match = re.search(r"folders/([a-zA-Z0-9_-]+)", link)
     file_match = re.search(r"(?:id=|d/|open\?id=)([a-zA-Z0-9_-]+)", link)
 
+    print(f"📥 Downloading Drive folder: {link}")
     if gdown is not None:
         try:
             if folder_match:
                 folder_id = folder_match.group(1)
-                gdown.download_folder(id=folder_id, output=str(target_dir), quiet=True, use_cookies=False)
+                print(f"   Detected Folder ID: {folder_id}")
+                try:
+                    gdown.download_folder(id=folder_id, output=str(target_dir), quiet=False, use_cookies=False)
+                except Exception as e1:
+                    print(f"   gdown folder download retry without cookies: {e1}")
+                    gdown.download_folder(url=link, output=str(target_dir), quiet=False)
             elif file_match:
                 file_id = file_match.group(1)
+                print(f"   Detected Single File ID: {file_id}")
                 dest = str(target_dir / f"file_{file_id}.jpg")
                 try:
-                    gdown.download(id=file_id, output=dest, quiet=True)
+                    gdown.download(id=file_id, output=dest, quiet=False)
                 except Exception:
-                    # Fallback to direct HTTP download for public file ID
-                    with httpx.Client(follow_redirects=True, timeout=20.0) as client:
+                    with httpx.Client(follow_redirects=True, timeout=30.0) as client:
                         r = client.get(f"https://drive.google.com/uc?export=download&id={file_id}")
                         if r.status_code == 200 and len(r.content) > 1000:
                             Path(dest).write_bytes(r.content)
         except Exception as e:
-            print(f"gdown extraction warning: {e}")
+            print(f"⚠ gdown extraction warning: {e}")
 
-    # Collect images
+    # Collect images recursively from target_dir
     image_files: list[Path] = []
     for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp", "*.bmp", "*.JPG", "*.JPEG", "*.PNG"):
-        image_files.extend(target_dir.glob(ext))
-        image_files.extend(target_dir.glob(f"**/{ext}"))
+        image_files.extend(target_dir.rglob(ext))
 
     # Deduplicate while preserving order
     seen = set()
@@ -628,6 +699,8 @@ def _download_drive_folder(link: str, target_dir: Path, max_images: int = 50) ->
         if f.resolve() not in seen and f.is_file():
             seen.add(f.resolve())
             unique_files.append(f)
+
+    print(f"   ✔ Found {len(unique_files)} image(s) from Drive folder (capped at {max_images})")
     return unique_files[:max_images]
 
 
@@ -793,6 +866,9 @@ async def _analyse_folder(folder_link: str, max_images: int = 50) -> AnalyzeResp
             "Vehicles": getattr(sub_res, "vehicles", "None detected") or "None detected",
             "electronic device": getattr(sub_res, "electronic_devices", "None detected") or "None detected",
             "Other Objects": getattr(sub_res, "other_objects", "None detected") or "None detected",
+            "Religion & Culture": getattr(sub_res, "religion_culture_summary", "") or "",
+            "Ceremony / Event": getattr(sub_res, "ceremony_or_event", "") or "",
+            "Person Profiles": json.dumps(getattr(sub_res, "person_profiles", []), ensure_ascii=False) if getattr(sub_res, "person_profiles", []) else "",
             "Setting": sub_res.setting,
             "Time of Day": sub_res.time_of_day,
             "Weather": sub_res.weather,

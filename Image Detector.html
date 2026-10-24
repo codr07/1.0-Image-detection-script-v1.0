@@ -423,6 +423,25 @@
 
         <div class="counts-grid" id="counts-grid"></div>
 
+        <!-- RELIGION & CEREMONY CARD -->
+        <div class="card" id="religion-card" style="display:none;border-color:rgba(251,191,36,.3);background:linear-gradient(135deg,rgba(251,191,36,.06),transparent)">
+          <div class="card-title" style="color:var(--amber)">🕉️ Religious &amp; Cultural Context</div>
+          <div id="religion-ceremony-wrap" style="margin-bottom:10px;display:none">
+            <span style="font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--tx3);font-weight:600">Event / Ceremony:</span>
+            <div id="res-ceremony" style="font-size:15px;font-weight:600;color:var(--tx);margin-top:2px"></div>
+          </div>
+          <div id="religion-summary-wrap" style="display:none">
+            <span style="font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--tx3);font-weight:600">Tradition &amp; Sect Analysis:</span>
+            <div id="res-religion" style="font-size:14px;color:var(--tx2);margin-top:2px;line-height:1.6"></div>
+          </div>
+        </div>
+
+        <!-- PERSON PROFILES CARD -->
+        <div class="card" id="persons-card" style="display:none">
+          <div class="card-title">👥 Individual Person Profiles</div>
+          <div id="persons-list"></div>
+        </div>
+
         <div class="card" id="objects-card" style="display:none">
           <div class="card-title">🎯 Detected Objects</div>
           <div id="objects-list"></div>
@@ -600,7 +619,12 @@
           } else {
             const url=$('img-url').value.trim();
             if (!url) throw new Error('Please upload an image or paste a URL.');
-            body={image_link:url};
+            if (url.includes('drive.google.com/drive/folders/') || url.includes('/folders/')) {
+              // User pasted a Drive folder link in the main input — route as folder
+              body = { folder_link: url, max_images: 50 };
+            } else {
+              body = { image_link: url };
+            }
           }
           setProgress(55);
           const res=await fetch(API+'/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(180000)});
@@ -708,6 +732,61 @@
 
 
         renderCounts(counts,scene.subjects);
+
+        // Religion & Ceremony Card
+        const relSummary = data.religion_culture_summary || (currentRecords[0] && currentRecords[0]["Religion & Culture"]) || "";
+        const cerEvent = data.ceremony_or_event || (currentRecords[0] && currentRecords[0]["Ceremony / Event"]) || "";
+        if (relSummary || cerEvent) {
+          $('religion-card').style.display = 'block';
+          if (cerEvent) {
+            $('religion-ceremony-wrap').style.display = 'block';
+            $('res-ceremony').textContent = cerEvent;
+          } else {
+            $('religion-ceremony-wrap').style.display = 'none';
+          }
+          if (relSummary) {
+            $('religion-summary-wrap').style.display = 'block';
+            $('res-religion').textContent = relSummary;
+          } else {
+            $('religion-summary-wrap').style.display = 'none';
+          }
+        } else {
+          $('religion-card').style.display = 'none';
+        }
+
+        // Person Profiles Card
+        let profiles = data.person_profiles || [];
+        if (!profiles.length && currentRecords[0] && currentRecords[0]["Person Profiles"]) {
+          try { profiles = JSON.parse(currentRecords[0]["Person Profiles"]); } catch(e){}
+        }
+        if (profiles && profiles.length) {
+          $('persons-card').style.display = 'block';
+          const pList = $('persons-list'); pList.innerHTML = '';
+          profiles.forEach((p, idx) => {
+            const pDiv = document.createElement('div');
+            pDiv.style.cssText = 'padding:14px;border-radius:var(--r-md);background:var(--surface);margin-bottom:10px;border:1px solid var(--border);';
+            pDiv.innerHTML = `
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                <span style="font-weight:600;font-size:14px;color:var(--tx)">${esc(p.person_id || 'Person ' + (idx+1))}</span>
+                <span style="font-size:12px;color:var(--tx3);background:var(--card);padding:2px 8px;border-radius:999px;border:1px solid var(--border)">
+                  ${esc(p.apparent_gender || '')} • ${esc(p.apparent_age || '')}
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:13px;line-height:1.5">
+                ${p.religion ? `<div><strong style="color:var(--amber)">Religion / Sect:</strong> <span style="color:var(--tx2)">${esc(p.religion)}</span></div>` : ''}
+                ${p.role_or_status ? `<div><strong style="color:var(--accent)">Role:</strong> <span style="color:var(--tx2)">${esc(p.role_or_status)}</span></div>` : ''}
+                ${p.activity ? `<div style="grid-column:1/-1"><strong style="color:var(--tx)">Activity:</strong> <span style="color:var(--tx2)">${esc(p.activity)}</span></div>` : ''}
+                ${p.attire ? `<div style="grid-column:1/-1"><strong>Attire:</strong> <span style="color:var(--tx2)">${esc(p.attire)}</span></div>` : ''}
+                ${p.cultural_markers && p.cultural_markers !== 'None visible' ? `<div style="grid-column:1/-1"><strong>Cultural / Sacred Markers:</strong> <span style="color:var(--tx2)">${esc(p.cultural_markers)}</span></div>` : ''}
+                ${p.posture ? `<div><strong>Posture:</strong> <span style="color:var(--tx3)">${esc(p.posture)}</span></div>` : ''}
+                ${p.position_in_frame ? `<div><strong>Position:</strong> <span style="color:var(--tx3)">${esc(p.position_in_frame)}</span></div>` : ''}
+              </div>
+            `;
+            pList.appendChild(pDiv);
+          });
+        } else {
+          $('persons-card').style.display = 'none';
+        }
 
         // Objects
         if (scene.subjects&&scene.subjects.length) {
@@ -898,7 +977,8 @@
       const SPREADSHEET_COLUMNS = [
         "Analysed At", "File Name", "Image Link", "Summary", "Detailed Description",
         "Animals", "Plants & Trees", "People", "Vehicles", "electronic device",
-        "Other Objects", "Setting", "Time of Day", "Weather", "Season",
+        "Other Objects", "Religion & Culture", "Ceremony / Event", "Person Profiles",
+        "Setting", "Time of Day", "Weather", "Season",
         "Dominant Colours", "Notable Features", "Notes & Limits"
       ];
 
