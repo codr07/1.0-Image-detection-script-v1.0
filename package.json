@@ -1,7 +1,7 @@
 {
-  "name": "image-detection-script",
+  "name": "jyot-india-image-detection-script",
   "version": "1.0.0",
-  "description": "Image detection and analysis dashboard runner",
+  "description": "Image detection and analysis tool for Jyot India by Sankha Saha (CODR)",
   "scripts": {
     "dev": "npm run dev --prefix \"../image-detection-tool\"",
     "start": "npm run start --prefix \"../image-detection-tool\"",
